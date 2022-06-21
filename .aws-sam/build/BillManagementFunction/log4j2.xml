@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration packages="com.amazonaws.services.lambda.runtime.log4j2">
+    <Appenders>
+        <Lambda name="Lambda">
+            <PatternLayout>
+                <!--                <pattern>%d{yyyy-MM-dd HH:mm:ss} %X{AWSRequestId} %-5p %c{1} - %m%n</pattern>-->
+                <pattern>%date{dd.MM.yyyy hh:mm:ss a z} ** %-5level ** |
+                    [%MDC{${env:AWS_LAMBDA_FUNCTION_NAME}}]~[%MDC{${env:AWS_LAMBDA_FUNCTION_VERSION}}]~[]~[%MDC{AWSRequestId}]
+                    | %logger{-10}: %message
+                    (%file, line %line)%n
+                </pattern>
+            </PatternLayout>
+        </Lambda>
+    </Appenders>
+    <Loggers>
+        <Root level="info">
+            <AppenderRef ref="Lambda"/>
+        </Root>
+    </Loggers>
+</Configuration>

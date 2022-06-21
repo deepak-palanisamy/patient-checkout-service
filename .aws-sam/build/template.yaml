@@ -1,0 +1,91 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: 'demo-patient-svc
+
+  Sample SAM Template for demo-patient-svc
+
+  '
+Globals:
+  Function:
+    CodeUri: patient-checkout-service
+    Timeout: 40
+    Runtime: java11
+    MemorySize: 256
+Resources:
+  PatientCheckOutDLQueue:
+    Type: AWS::SNS::Topic
+  PatientCheckOutBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName:
+        Fn::Sub: ${AWS::StackName}-${AWS::AccountId}-${AWS::Region}
+  PatientCheckOutSnsTopic:
+    Type: AWS::SNS::Topic
+  PatientCheckOutFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: net.breezeware.propel.patientcheckoutservice.apis.PatientCheckOutLambda::checkout
+      DeadLetterQueue:
+        Type: SQS
+        TargetArn:
+          Ref: PatientCheckOutDLQueue
+      Architectures:
+      - x86_64
+      Environment:
+        Variables:
+          PATIENT_CHECKOUT_TOPIC:
+            Ref: PatientCheckOutSnsTopic
+      Policies:
+      - S3ReadPolicy:
+          BucketName:
+            Fn::Sub: ${AWS::StackName}-${AWS::AccountId}-${AWS::Region}
+      - SNSPublishMessagePolicy:
+          TopicName:
+          - Fn::GetAtt:
+            - PatientCheckOutSnsTopic
+            - TopicName
+      - SNSPublishMessagePolicy:
+          TopicName:
+          - Fn::GetAtt:
+            - PatientCheckOutDLQueue
+            - TopicName
+      Events:
+        S3Event:
+          Type: S3
+          Properties:
+            Bucket:
+              Ref: PatientCheckOutBucket
+            Events: s3:ObjectCreated:*
+      CodeUri: PatientCheckOutFunction
+    Metadata:
+      SamResourceId: PatientCheckOutFunction
+  BillManagementFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: net.breezeware.propel.patientcheckoutservice.apis.BillManagementLambda::manage
+      Architectures:
+      - x86_64
+      Events:
+        SnsEvent:
+          Type: SNS
+          Properties:
+            Topic:
+              Ref: PatientCheckOutSnsTopic
+      CodeUri: BillManagementFunction
+    Metadata:
+      SamResourceId: BillManagementFunction
+  DLQErrorHandlingFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: net.breezeware.propel.patientcheckoutservice.apis.DLQEventLambda::execute
+      Architectures:
+      - x86_64
+      Events:
+        SnsEvent:
+          Type: SNS
+          Properties:
+            Topic:
+              Ref: PatientCheckOutDLQueue
+      CodeUri: DLQErrorHandlingFunction
+    Metadata:
+      SamResourceId: DLQErrorHandlingFunction
